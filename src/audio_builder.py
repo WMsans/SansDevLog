@@ -21,6 +21,28 @@ def calculate_pitch_shift(config: dict, seed: int | None = None) -> float:
         return (min_pitch + max_pitch) / 2
 
 
+def get_audio_sample_rate(sound_path: str) -> int:
+    probe_cmd = [
+        "ffprobe",
+        "-v",
+        "error",
+        "-select_streams",
+        "a:0",
+        "-show_entries",
+        "stream=sample_rate",
+        "-of",
+        "default=nw=1:nk=1",
+        sound_path,
+    ]
+    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+    if probe_result.returncode != 0:
+        return 44100
+    try:
+        return int(probe_result.stdout.strip())
+    except ValueError:
+        return 44100
+
+
 def build_audio_track(
     sentences: list[str],
     sound_path: str,
@@ -29,6 +51,7 @@ def build_audio_track(
 ) -> str:
     char_duration_ms = config.get("character_duration_ms", 50)
     sentence_pause_ms = config.get("sentence_pause_ms", 500)
+    sample_rate = get_audio_sample_rate(sound_path)
 
     audio_clips = []
     temp_files = []
@@ -47,7 +70,8 @@ def build_audio_track(
             "-i",
             sound_path,
             "-af",
-            "asetrate=44100*{pitch},atempo=1/{pitch},aresample=44100,apad=whole_dur={duration_ms}ms".format(
+            "asetrate={sample_rate}*{pitch},atempo=1/{pitch},aresample={sample_rate},apad=whole_dur={duration_ms}ms".format(
+                sample_rate=sample_rate,
                 pitch=pitch,
                 duration_ms=duration_ms,
             ),
@@ -67,7 +91,7 @@ def build_audio_track(
                 "-f",
                 "lavfi",
                 "-i",
-                "anullsrc=r=44100:cl=mono",
+                f"anullsrc=r={sample_rate}:cl=mono",
                 "-t",
                 f"{sentence_pause_ms / 1000}",
                 silence_path,
