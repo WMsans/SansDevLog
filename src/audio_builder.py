@@ -13,11 +13,10 @@ def calculate_pitch_shift(config: dict, seed: int | None = None) -> float:
     max_pitch = pitch_config.get("max", 1.1)
     is_random = pitch_config.get("random", True)
 
-    if seed is not None:
-        random.seed(seed)
+    rng = random.Random(seed) if seed is not None else random
 
     if is_random:
-        return random.uniform(min_pitch, max_pitch)
+        return rng.uniform(min_pitch, max_pitch)
     else:
         return (min_pitch + max_pitch) / 2
 
@@ -48,7 +47,10 @@ def build_audio_track(
             "-i",
             sound_path,
             "-af",
-            f"apad=whole_dur={duration_ms}ms,atempo={pitch}",
+            "asetrate=44100*{pitch},atempo=1/{pitch},aresample=44100,apad=whole_dur={duration_ms}ms".format(
+                pitch=pitch,
+                duration_ms=duration_ms,
+            ),
             "-t",
             f"{duration_ms / 1000}",
             temp_clip,
