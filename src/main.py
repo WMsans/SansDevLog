@@ -55,10 +55,15 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
         logger.error(f"Sound file not found: {sound_path}")
         raise SystemExit(1)
 
+    frame_config = {
+        **config["style"],
+        "resolution": config["video"]["resolution"],
+    }
+
     all_frames = []
     for i, sentence in enumerate(sentences):
         logger.debug(f"Generating frames for sentence {i + 1}/{len(sentences)}")
-        frames = generate_sentence_frames(sentence, config["style"], font_path)
+        frames = generate_sentence_frames(sentence, frame_config, font_path)
         all_frames.extend(frames)
 
     Path(output).parent.mkdir(parents=True, exist_ok=True)
