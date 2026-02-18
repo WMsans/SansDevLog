@@ -1,3 +1,4 @@
+import click
 import shutil
 
 
@@ -7,7 +8,7 @@ def check_ffmpeg() -> bool:
 
 def verify_ffmpeg() -> None:
     if not check_ffmpeg():
-        raise RuntimeError(
+        raise click.ClickException(
             "ffmpeg not found. Please install ffmpeg:\n"
             "  Windows: winget install ffmpeg\n"
             "  macOS: brew install ffmpeg\n"
