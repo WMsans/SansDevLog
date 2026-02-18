@@ -9,6 +9,7 @@ from src.parser import split_sentences
 from src.frame_generator import generate_sentence_frames
 from src.video_builder import save_frames, assemble_video
 from src.audio_builder import build_audio_track
+from src.utils import verify_ffmpeg
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -29,6 +30,8 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
     """Generate subtitle video with typing sounds from text file."""
     if verbose:
         logging.getLogger().setLevel(logging.DEBUG)
+
+    verify_ffmpeg()
 
     config = load_config(config_path) if config_path else get_default_config()
 
