@@ -1,5 +1,6 @@
 import click
 import logging
+import tempfile
 from pathlib import Path
 from typing import Optional
 
@@ -59,22 +60,20 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
 
     Path(output).parent.mkdir(parents=True, exist_ok=True)
 
-    frames_dir = "frames"
-    Path(frames_dir).mkdir(exist_ok=True)
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
+        frames_dir = temp_path / "frames"
+        frames_dir.mkdir(exist_ok=True)
 
-    save_frames(all_frames, frames_dir)
-    logger.info(f"Saved {len(all_frames)} frames")
+        save_frames(all_frames, str(frames_dir))
+        logger.info(f"Saved {len(all_frames)} frames")
 
-    audio_output = "temp_audio.wav"
-    build_audio_track(sentences, sound_path, audio_output, config["audio"])
-    logger.info("Built audio track")
+        audio_output = str(temp_path / "temp_audio.wav")
+        build_audio_track(sentences, sound_path, audio_output, config["audio"])
+        logger.info("Built audio track")
 
-    assemble_video(frames_dir, audio_output, output, config["video"])
-    logger.info(f"Video saved to {output}")
-
-    Path(audio_output).unlink(missing_ok=True)
-    for frame in Path(frames_dir).glob("*.png"):
-        frame.unlink()
+        assemble_video(str(frames_dir), audio_output, output, config["video"])
+        logger.info(f"Video saved to {output}")
 
 
 def main():
