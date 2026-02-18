@@ -1,9 +1,13 @@
 import pytest
+import shutil
 import subprocess
 
+ffmpeg_available = shutil.which("ffmpeg") is not None
+ffprobe_available = shutil.which("ffprobe") is not None
+
 pytestmark = pytest.mark.skipif(
-    not subprocess.run(["which", "ffmpeg"], capture_output=True).returncode == 0,
-    reason="ffmpeg not installed",
+    not (ffmpeg_available and ffprobe_available),
+    reason="ffmpeg/ffprobe not installed",
 )
 
 
@@ -76,6 +80,11 @@ parsing:
         "csv=p=0",
         str(output_file),
     ]
-    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+    probe_result = subprocess.run(
+        probe_cmd,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
     duration = float(probe_result.stdout.strip())
     assert duration > 0
