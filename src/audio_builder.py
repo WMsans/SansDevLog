@@ -34,7 +34,17 @@ def get_audio_sample_rate(sound_path: str) -> int:
         "default=nw=1:nk=1",
         sound_path,
     ]
-    probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+    try:
+        probe_result = subprocess.run(
+            probe_cmd,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+    except FileNotFoundError:
+        return 44100
+    except subprocess.TimeoutExpired:
+        return 44100
     if probe_result.returncode != 0:
         return 44100
     try:
