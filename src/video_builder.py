@@ -15,12 +15,16 @@ def save_frames(
 
 
 def assemble_video(
-    frames_dir: str, audio_path: str, output_path: str, config: dict
+    frames_dir: str,
+    audio_path: str,
+    output_path: str,
+    config: dict,
+    prefix: str = "frame",
 ) -> str:
     fps = config.get("fps", 30)
     resolution = config.get("resolution", [1920, 1080])
 
-    frames_pattern = f"{frames_dir}/frame_%06d.png"
+    frames_pattern = f"{frames_dir}/{prefix}_%06d.png"
 
     cmd = [
         "ffmpeg",
