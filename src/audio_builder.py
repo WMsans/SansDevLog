@@ -2,6 +2,8 @@ import random
 import subprocess
 from pathlib import Path
 
+from src.parser import is_pause_marker, is_punctuation
+
 
 def get_character_count(sentences: list[str]) -> list[int]:
     return [len(sentence) for sentence in sentences]
@@ -66,9 +68,14 @@ def build_audio_track(
     sound_path: str,
     output_path: str,
     config: dict,
+    pause_chars: list[str] | None = None,
 ) -> str:
+    if pause_chars is None:
+        pause_chars = ["，", "、", ","]
+
     char_duration_ms = config.get("character_duration_ms", 50)
     sentence_pause_ms = config.get("sentence_pause_ms", 500)
+    character_pause_ms = config.get("character_pause_ms", 200)
     audio_props = get_audio_properties(sound_path)
     sample_rate = audio_props["sample_rate"]
     channels = audio_props["channels"]
@@ -78,7 +85,26 @@ def build_audio_track(
     temp_files = []
 
     for i, sentence in enumerate(sentences):
-        for char_idx in range(len(sentence)):
+        for char_idx, char in enumerate(sentence):
+            if is_punctuation(char):
+                if is_pause_marker(char, pause_chars):
+                    silence_path = f"temp_pause_silence_{i}_{char_idx}.wav"
+                    temp_files.append(silence_path)
+                    silence_cmd = [
+                        "ffmpeg",
+                        "-y",
+                        "-f",
+                        "lavfi",
+                        "-i",
+                        f"anullsrc=r={sample_rate}:cl={channel_layout}",
+                        "-t",
+                        f"{character_pause_ms / 1000}",
+                        silence_path,
+                    ]
+                    subprocess.run(silence_cmd, check=True, capture_output=True)
+                    audio_clips.append(silence_path)
+                continue
+
             pitch = calculate_pitch_shift(config)
             temp_clip = f"temp_char_{i}_{char_idx}.wav"
             temp_files.append(temp_clip)

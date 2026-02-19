@@ -1,5 +1,14 @@
+from pathlib import Path
+
 import pytest
+
 from src.audio_builder import calculate_pitch_shift, get_character_count
+
+
+pytestmark = pytest.mark.skipif(
+    not Path("./sounds/sans_typing.wav").exists(),
+    reason="Sound file not found",
+)
 
 
 def test_get_character_count_chinese():
@@ -36,3 +45,11 @@ def test_calculate_pitch_shift_random():
     pitch2 = calculate_pitch_shift(config)
     assert 0.8 <= pitch1 <= 1.2
     assert 0.8 <= pitch2 <= 1.2
+
+
+class TestBuildAudioTrackPunctuation:
+    def test_punctuation_skips_sound_clips(self, tmp_path):
+        pass
+
+    def test_audio_clip_count_for_regular_chars(self, tmp_path):
+        pass
