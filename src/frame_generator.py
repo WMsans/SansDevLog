@@ -2,6 +2,8 @@ from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
 
+from src.parser import is_punctuation, is_pause_marker
+
 
 def generate_pause_frames(
     config: dict,
@@ -41,9 +43,14 @@ def generate_sentence_frames(
     font_path: Optional[str] = None,
     fps: int = 30,
     character_duration_ms: int = 50,
+    pause_chars: Optional[list[str]] = None,
+    character_pause_ms: int = 200,
 ) -> list[Image.Image]:
     if not sentence:
         return []
+
+    if pause_chars is None:
+        pause_chars = ["，", "、", ","]
 
     width, height = config["resolution"]
     font_size = config["font_size"]
@@ -53,6 +60,7 @@ def generate_sentence_frames(
 
     frames = []
     frames_per_char = max(1, round(fps * character_duration_ms / 1000))
+    pause_frames_count = max(1, round(fps * character_pause_ms / 1000))
 
     try:
         if font_path:
@@ -62,12 +70,30 @@ def generate_sentence_frames(
     except Exception:
         font = ImageFont.load_default()
 
-    for i in range(1, len(sentence) + 1):
-        frame = Image.new("RGB", (width, height), bg_color)
-        draw = ImageDraw.Draw(frame)
-        visible_text = sentence[:i]
-        draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
-        for _ in range(frames_per_char):
-            frames.append(frame.copy())
+    visible_text = ""
+    for char in sentence:
+        visible_text += char
+
+        if is_punctuation(char):
+            if len(frames) > 0:
+                frame = frames[-1].copy()
+                draw = ImageDraw.Draw(frame)
+                draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
+                frames[-1] = frame
+            else:
+                frame = Image.new("RGB", (width, height), bg_color)
+                draw = ImageDraw.Draw(frame)
+                draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
+                frames.append(frame)
+
+            if is_pause_marker(char, pause_chars):
+                for _ in range(pause_frames_count):
+                    frames.append(frames[-1].copy())
+        else:
+            frame = Image.new("RGB", (width, height), bg_color)
+            draw = ImageDraw.Draw(frame)
+            draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
+            for _ in range(frames_per_char):
+                frames.append(frame.copy())
 
     return frames
