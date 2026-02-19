@@ -7,18 +7,18 @@ style:
   font_path: ./fonts/default.ttf
   font_size: 48
   text_color: "#FFFFFF"
-  background_color: "#000000"
+  background_color: "#00FF00"
   text_position: [100, 500]
 
 audio:
   typing_sound: ./sounds/sans_typing.wav
   pitch_variation:
-    min: 0.9
-    max: 1.1
+    min: 0.95
+    max: 1.05
     random: true
-  character_duration_ms: 200
-  sentence_pause_ms: 2000
-  character_pause_ms: 200
+  character_duration_ms: 80
+  sentence_pause_ms: 1000
+  character_pause_ms: 250
 
 parsing:
   sentence_enders: ["。", "！", "？", ".", "!", "?"]
