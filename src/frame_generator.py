@@ -12,7 +12,7 @@ def generate_pause_frames(
 ) -> list[Image.Image]:
     width, height = config["resolution"]
     bg_color = config["background_color"]
-    pause_frames_count = max(1, int(fps * pause_duration_ms / 1000))
+    pause_frames_count = max(1, round(fps * pause_duration_ms / 1000))
 
     frame = Image.new("RGB", (width, height), bg_color)
 
@@ -52,7 +52,7 @@ def generate_sentence_frames(
     text_x, text_y = config["text_position"]
 
     frames = []
-    frames_per_char = max(1, int(fps * character_duration_ms / 1000))
+    frames_per_char = max(1, round(fps * character_duration_ms / 1000))
 
     try:
         if font_path:

@@ -21,7 +21,8 @@ def calculate_pitch_shift(config: dict, seed: int | None = None) -> float:
         return (min_pitch + max_pitch) / 2
 
 
-def get_audio_sample_rate(sound_path: str) -> int:
+def get_audio_properties(sound_path: str) -> dict:
+    """Return sample_rate and channels for the first audio stream."""
     probe_cmd = [
         "ffprobe",
         "-v",
@@ -29,11 +30,12 @@ def get_audio_sample_rate(sound_path: str) -> int:
         "-select_streams",
         "a:0",
         "-show_entries",
-        "stream=sample_rate",
+        "stream=sample_rate,channels",
         "-of",
         "default=nw=1:nk=1",
         sound_path,
     ]
+    defaults = {"sample_rate": 44100, "channels": 2}
     try:
         probe_result = subprocess.run(
             probe_cmd,
@@ -41,16 +43,22 @@ def get_audio_sample_rate(sound_path: str) -> int:
             text=True,
             timeout=10,
         )
-    except FileNotFoundError:
-        return 44100
-    except subprocess.TimeoutExpired:
-        return 44100
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return defaults
     if probe_result.returncode != 0:
-        return 44100
+        return defaults
     try:
-        return int(probe_result.stdout.strip())
-    except ValueError:
-        return 44100
+        lines = probe_result.stdout.strip().splitlines()
+        return {
+            "sample_rate": int(lines[0]),
+            "channels": int(lines[1]),
+        }
+    except (ValueError, IndexError):
+        return defaults
+
+
+def get_audio_sample_rate(sound_path: str) -> int:
+    return get_audio_properties(sound_path)["sample_rate"]
 
 
 def build_audio_track(
@@ -61,7 +69,10 @@ def build_audio_track(
 ) -> str:
     char_duration_ms = config.get("character_duration_ms", 50)
     sentence_pause_ms = config.get("sentence_pause_ms", 500)
-    sample_rate = get_audio_sample_rate(sound_path)
+    audio_props = get_audio_properties(sound_path)
+    sample_rate = audio_props["sample_rate"]
+    channels = audio_props["channels"]
+    channel_layout = "stereo" if channels >= 2 else "mono"
 
     audio_clips = []
     temp_files = []
@@ -99,7 +110,7 @@ def build_audio_track(
                 "-f",
                 "lavfi",
                 "-i",
-                f"anullsrc=r={sample_rate}:cl=mono",
+                f"anullsrc=r={sample_rate}:cl={channel_layout}",
                 "-t",
                 f"{sentence_pause_ms / 1000}",
                 silence_path,
