@@ -18,6 +18,7 @@ audio:
     random: true
   character_duration_ms: 200
   sentence_pause_ms: 2000
+  character_pause_ms: 200
 
 parsing:
   sentence_enders: ["。", "！", "？", ".", "!", "?"]

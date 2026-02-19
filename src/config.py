@@ -23,6 +23,7 @@ DEFAULT_CONFIG = {
         },
         "character_duration_ms": 50,
         "sentence_pause_ms": 500,
+        "character_pause_ms": 200,
     },
     "parsing": {
         "sentence_enders": ["。", "！", "？", ".", "!", "?"],
