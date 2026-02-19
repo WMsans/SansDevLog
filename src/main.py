@@ -63,7 +63,13 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
     all_frames = []
     for i, sentence in enumerate(sentences):
         logger.debug(f"Generating frames for sentence {i + 1}/{len(sentences)}")
-        frames = generate_sentence_frames(sentence, frame_config, font_path)
+        frames = generate_sentence_frames(
+            sentence,
+            frame_config,
+            font_path,
+            fps=config["video"]["fps"],
+            character_duration_ms=config["audio"]["character_duration_ms"],
+        )
         all_frames.extend(frames)
 
     Path(output).parent.mkdir(parents=True, exist_ok=True)

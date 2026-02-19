@@ -16,8 +16,8 @@ audio:
     min: 0.9
     max: 1.1
     random: true
-  character_duration_ms: 50
-  sentence_pause_ms: 500
+  character_duration_ms: 200
+  sentence_pause_ms: 2000
 
 parsing:
   sentence_enders: ["。", "！", "？", ".", "!", "?"]

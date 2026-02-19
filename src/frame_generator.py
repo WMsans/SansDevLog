@@ -7,6 +7,8 @@ def generate_sentence_frames(
     sentence: str,
     config: dict,
     font_path: Optional[str] = None,
+    fps: int = 30,
+    character_duration_ms: int = 50,
 ) -> list[Image.Image]:
     if not sentence:
         return []
@@ -18,6 +20,7 @@ def generate_sentence_frames(
     text_x, text_y = config["text_position"]
 
     frames = []
+    frames_per_char = max(1, round(fps * character_duration_ms / 1000))
 
     try:
         if font_path:
@@ -32,6 +35,7 @@ def generate_sentence_frames(
         draw = ImageDraw.Draw(frame)
         visible_text = sentence[:i]
         draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
-        frames.append(frame)
+        for _ in range(frames_per_char):
+            frames.append(frame.copy())
 
     return frames

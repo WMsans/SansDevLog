@@ -67,30 +67,28 @@ def build_audio_track(
     temp_files = []
 
     for i, sentence in enumerate(sentences):
-        pitch = calculate_pitch_shift(config)
-        char_count = len(sentence)
-        duration_ms = char_count * char_duration_ms
+        for char_idx in range(len(sentence)):
+            pitch = calculate_pitch_shift(config)
+            temp_clip = f"temp_char_{i}_{char_idx}.wav"
+            temp_files.append(temp_clip)
 
-        temp_clip = f"temp_sentence_{i}.wav"
-        temp_files.append(temp_clip)
-
-        cmd = [
-            "ffmpeg",
-            "-y",
-            "-i",
-            sound_path,
-            "-af",
-            "asetrate={sample_rate}*{pitch},atempo=1/{pitch},aresample={sample_rate},apad=whole_dur={duration_ms}ms".format(
-                sample_rate=sample_rate,
-                pitch=pitch,
-                duration_ms=duration_ms,
-            ),
-            "-t",
-            f"{duration_ms / 1000}",
-            temp_clip,
-        ]
-        subprocess.run(cmd, check=True, capture_output=True)
-        audio_clips.append(temp_clip)
+            cmd = [
+                "ffmpeg",
+                "-y",
+                "-i",
+                sound_path,
+                "-af",
+                "asetrate={sample_rate}*{pitch},atempo=1/{pitch},aresample={sample_rate},apad=whole_dur={duration_ms}ms".format(
+                    sample_rate=sample_rate,
+                    pitch=pitch,
+                    duration_ms=char_duration_ms,
+                ),
+                "-t",
+                f"{char_duration_ms / 1000}",
+                temp_clip,
+            ]
+            subprocess.run(cmd, check=True, capture_output=True)
+            audio_clips.append(temp_clip)
 
         if i < len(sentences) - 1:
             silence_path = f"temp_silence_{i}.wav"
