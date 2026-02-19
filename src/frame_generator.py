@@ -3,6 +3,38 @@ from typing import Optional
 from PIL import Image, ImageDraw, ImageFont
 
 
+def generate_pause_frames(
+    config: dict,
+    fps: int = 30,
+    pause_duration_ms: int = 500,
+    visible_text: str = "",
+    font_path: Optional[str] = None,
+) -> list[Image.Image]:
+    width, height = config["resolution"]
+    bg_color = config["background_color"]
+    pause_frames_count = max(1, int(fps * pause_duration_ms / 1000))
+
+    frame = Image.new("RGB", (width, height), bg_color)
+
+    if visible_text:
+        font_size = config["font_size"]
+        text_color = config["text_color"]
+        text_x, text_y = config["text_position"]
+
+        try:
+            if font_path:
+                font = ImageFont.truetype(font_path, font_size)
+            else:
+                font = ImageFont.load_default()
+        except Exception:
+            font = ImageFont.load_default()
+
+        draw = ImageDraw.Draw(frame)
+        draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
+
+    return [frame.copy() for _ in range(pause_frames_count)]
+
+
 def generate_sentence_frames(
     sentence: str,
     config: dict,
@@ -20,7 +52,7 @@ def generate_sentence_frames(
     text_x, text_y = config["text_position"]
 
     frames = []
-    frames_per_char = max(1, round(fps * character_duration_ms / 1000))
+    frames_per_char = max(1, int(fps * character_duration_ms / 1000))
 
     try:
         if font_path:

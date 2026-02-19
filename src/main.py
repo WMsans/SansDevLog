@@ -6,7 +6,7 @@ from typing import Optional
 
 from src.config import load_config, get_default_config
 from src.parser import split_sentences
-from src.frame_generator import generate_sentence_frames
+from src.frame_generator import generate_sentence_frames, generate_pause_frames
 from src.video_builder import save_frames, assemble_video
 from src.audio_builder import build_audio_track
 from src.utils import verify_ffmpeg
@@ -71,6 +71,16 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
             character_duration_ms=config["audio"]["character_duration_ms"],
         )
         all_frames.extend(frames)
+
+        if i < len(sentences) - 1:
+            pause_frames = generate_pause_frames(
+                frame_config,
+                fps=config["video"]["fps"],
+                pause_duration_ms=config["audio"]["sentence_pause_ms"],
+                visible_text=sentence,
+                font_path=font_path,
+            )
+            all_frames.extend(pause_frames)
 
     Path(output).parent.mkdir(parents=True, exist_ok=True)
 
