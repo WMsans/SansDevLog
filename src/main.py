@@ -60,6 +60,8 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
         "resolution": config["video"]["resolution"],
     }
 
+    pause_chars = config["parsing"].get("sentence_pauses", ["，", "、", ","])
+
     all_frames = []
     for i, sentence in enumerate(sentences):
         logger.debug(f"Generating frames for sentence {i + 1}/{len(sentences)}")
@@ -69,6 +71,8 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
             font_path,
             fps=config["video"]["fps"],
             character_duration_ms=config["audio"]["character_duration_ms"],
+            pause_chars=pause_chars,
+            character_pause_ms=config["audio"].get("character_pause_ms", 200),
         )
         all_frames.extend(frames)
 
@@ -93,7 +97,13 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
         logger.info(f"Saved {len(all_frames)} frames")
 
         audio_output = str(temp_path / "temp_audio.wav")
-        build_audio_track(sentences, sound_path, audio_output, config["audio"])
+        build_audio_track(
+            sentences,
+            sound_path,
+            audio_output,
+            config["audio"],
+            pause_chars=pause_chars,
+        )
         logger.info("Built audio track")
 
         assemble_video(str(frames_dir), audio_output, output, config["video"])
