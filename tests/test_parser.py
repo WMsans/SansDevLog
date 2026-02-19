@@ -1,6 +1,6 @@
 import pytest
 
-from src.parser import split_sentences
+from src.parser import is_punctuation, is_pause_marker, split_sentences
 
 
 def test_split_sentences_chinese():
@@ -40,3 +40,48 @@ def test_split_sentences_no_enders():
     sentences = split_sentences(text)
     assert len(sentences) == 1
     assert sentences[0] == "No sentence enders here"
+
+
+class TestIsPunctuation:
+    def test_letters_are_not_punctuation(self):
+        assert is_punctuation("a") is False
+        assert is_punctuation("Z") is False
+        assert is_punctuation("你") is False
+
+    def test_numbers_are_not_punctuation(self):
+        assert is_punctuation("1") is False
+        assert is_punctuation("9") is False
+
+    def test_spaces_are_not_punctuation(self):
+        assert is_punctuation(" ") is False
+
+    def test_punctuation_returns_true(self):
+        assert is_punctuation("。") is True
+        assert is_punctuation("！") is True
+        assert is_punctuation("？") is True
+        assert is_punctuation(".") is True
+        assert is_punctuation("!") is True
+        assert is_punctuation("?") is True
+        assert is_punctuation("，") is True
+        assert is_punctuation("、") is True
+        assert is_punctuation(",") is True
+        assert is_punctuation(":") is True
+        assert is_punctuation(";") is True
+
+
+class TestIsPauseMarker:
+    def test_pause_markers_return_true(self):
+        pause_chars = ["，", "、", ","]
+        assert is_pause_marker("，", pause_chars) is True
+        assert is_pause_marker("、", pause_chars) is True
+        assert is_pause_marker(",", pause_chars) is True
+
+    def test_non_pause_punctuation_returns_false(self):
+        pause_chars = ["，", "、", ","]
+        assert is_pause_marker("。", pause_chars) is False
+        assert is_pause_marker(".", pause_chars) is False
+        assert is_pause_marker("!", pause_chars) is False
+
+    def test_letters_return_false(self):
+        pause_chars = ["，", "、", ","]
+        assert is_pause_marker("a", pause_chars) is False
