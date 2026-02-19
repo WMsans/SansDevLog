@@ -1,5 +1,3 @@
-import pytest
-
 from src.parser import is_punctuation, is_pause_marker, split_sentences
 
 

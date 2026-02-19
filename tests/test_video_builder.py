@@ -1,8 +1,7 @@
-import pytest
 from PIL import Image
 import tempfile
 from pathlib import Path
-from src.video_builder import save_frames, assemble_video
+from src.video_builder import save_frames
 
 
 def test_save_frames():
