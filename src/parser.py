@@ -15,13 +15,20 @@ def split_sentences(text: str) -> list[str]:
     if not text.strip():
         return []
 
-    pattern = r"[^。！？.!?]+[。！？.!?]?"
-    matches = re.findall(pattern, text)
-
+    lines = text.split("\n")
     sentences = []
-    for match in matches:
-        stripped = match.strip()
-        if stripped:
-            sentences.append(stripped)
+
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+
+        pattern = r"[^。！？.!?]+[。！？.!?]?"
+        matches = re.findall(pattern, line)
+
+        for match in matches:
+            stripped = match.strip()
+            if stripped:
+                sentences.append(stripped)
 
     return sentences
