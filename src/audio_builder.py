@@ -85,6 +85,7 @@ def build_audio_track(
     temp_files = []
 
     for i, sentence in enumerate(sentences):
+        pitch = calculate_pitch_shift(config)
         for char_idx, char in enumerate(sentence):
             if is_punctuation(char):
                 if is_pause_marker(char, pause_chars):
@@ -104,8 +105,6 @@ def build_audio_track(
                     subprocess.run(silence_cmd, check=True, capture_output=True)
                     audio_clips.append(silence_path)
                 continue
-
-            pitch = calculate_pitch_shift(config)
             temp_clip = f"temp_char_{i}_{char_idx}.wav"
             temp_files.append(temp_clip)
 
