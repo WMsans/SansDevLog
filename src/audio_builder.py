@@ -86,62 +86,79 @@ def build_audio_track(
 
     for i, sentence in enumerate(sentences):
         pitch = calculate_pitch_shift(config)
+        clips_to_generate = []
+
+        # Group durations to allow sounds to naturally decay into pauses
         for char_idx, char in enumerate(sentence):
             if is_punctuation(char):
                 if is_pause_marker(char, pause_chars):
-                    silence_path = f"temp_pause_silence_{i}_{char_idx}.wav"
-                    temp_files.append(silence_path)
-                    silence_cmd = [
-                        "ffmpeg",
-                        "-y",
-                        "-f",
-                        "lavfi",
-                        "-i",
-                        f"anullsrc=r={sample_rate}:cl={channel_layout}",
-                        "-t",
-                        f"{character_pause_ms / 1000}",
-                        silence_path,
-                    ]
-                    subprocess.run(silence_cmd, check=True, capture_output=True)
-                    audio_clips.append(silence_path)
+                    # If there's an active character before this pause, let it ring out by absorbing the pause
+                    if clips_to_generate and clips_to_generate[-1]['type'] == 'char':
+                        clips_to_generate[-1]['duration'] += character_pause_ms
+                    else:
+                        clips_to_generate.append({
+                            'type': 'silence',
+                            'duration': character_pause_ms,
+                            'char_idx': char_idx
+                        })
                 continue
-            temp_clip = f"temp_char_{i}_{char_idx}.wav"
-            temp_files.append(temp_clip)
+            
+            clips_to_generate.append({
+                'type': 'char',
+                'duration': char_duration_ms,
+                'char_idx': char_idx
+            })
 
-            cmd = [
-                "ffmpeg",
-                "-y",
-                "-i",
-                sound_path,
-                "-af",
-                "asetrate={sample_rate}*{pitch},atempo=1/{pitch},aresample={sample_rate},apad=whole_dur={duration_ms}ms".format(
-                    sample_rate=sample_rate,
-                    pitch=pitch,
-                    duration_ms=char_duration_ms,
-                ),
-                "-t",
-                f"{char_duration_ms / 1000}",
-                temp_clip,
-            ]
-            subprocess.run(cmd, check=True, capture_output=True)
-            audio_clips.append(temp_clip)
-
+        # Add the sentence pause (line break / sentence end padding)
         if i < len(sentences) - 1:
-            silence_path = f"temp_silence_{i}.wav"
-            temp_files.append(silence_path)
-            silence_cmd = [
-                "ffmpeg",
-                "-y",
-                "-f",
-                "lavfi",
-                "-i",
-                f"anullsrc=r={sample_rate}:cl={channel_layout}",
-                "-t",
-                f"{sentence_pause_ms / 1000}",
-                silence_path,
-            ]
-            subprocess.run(silence_cmd, check=True, capture_output=True)
-            audio_clips.append(silence_path)
+            if clips_to_generate and clips_to_generate[-1]['type'] == 'char':
+                clips_to_generate[-1]['duration'] += sentence_pause_ms
+            else:
+                clips_to_generate.append({
+                    'type': 'silence',
+                    'duration': sentence_pause_ms,
+                    'char_idx': 'end'
+                })
+
+        # Generate the scheduled clips
+        for clip_info in clips_to_generate:
+            duration_ms = clip_info['duration']
+            idx = clip_info['char_idx']
+
+            if clip_info['type'] == 'char':
+                temp_clip = f"temp_char_{i}_{idx}.wav"
+                temp_files.append(temp_clip)
+
+                cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-i",
+                    sound_path,
+                    "-af",
+                    f"asetrate={sample_rate}*{pitch},atempo=1/{pitch},aresample={sample_rate},apad=whole_dur={duration_ms}ms",
+                    "-t",
+                    f"{duration_ms / 1000}",
+                    temp_clip,
+                ]
+                subprocess.run(cmd, check=True, capture_output=True)
+                audio_clips.append(temp_clip)
+            else:
+                silence_path = f"temp_silence_{i}_{idx}.wav"
+                temp_files.append(silence_path)
+                
+                silence_cmd = [
+                    "ffmpeg",
+                    "-y",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    f"anullsrc=r={sample_rate}:cl={channel_layout}",
+                    "-t",
+                    f"{duration_ms / 1000}",
+                    silence_path,
+                ]
+                subprocess.run(silence_cmd, check=True, capture_output=True)
+                audio_clips.append(silence_path)
 
     concat_file = "temp_concat.txt"
     with open(concat_file, "w") as f:
