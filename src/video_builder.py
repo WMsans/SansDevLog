@@ -1,58 +1,63 @@
 import subprocess
 from pathlib import Path
 from PIL import Image
+from typing import Iterator
 
-
-def save_frames(
-    frames: list[Image.Image], output_dir: str, prefix: str = "frame"
-) -> None:
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    for i, frame in enumerate(frames):
-        frame_path = output_path / f"{prefix}_{i:06d}.png"
-        frame.save(frame_path)
-
-
-def assemble_video(
-    frames_dir: str,
+def assemble_video_stream(
+    frames_iterator: Iterator[Image.Image],
     audio_path: str,
     output_path: str,
     config: dict,
-    prefix: str = "frame",
 ) -> str:
     fps = config.get("fps", 30)
     resolution = config.get("resolution", [1920, 1080])
 
-    frames_pattern = f"{frames_dir}/{prefix}_%06d.png"
-
     cmd = [
         "ffmpeg",
         "-y",
-        "-framerate",
-        str(fps),
-        "-i",
-        frames_pattern,
-        "-i",
-        audio_path,
-        "-c:v",
-        "libx264",
-        "-preset",
-        "medium",
-        "-crf",
-        "23",
-        "-c:a",
-        "aac",
-        "-b:a",
-        "128k",
-        "-pix_fmt",
-        "yuv420p",
-        "-s",
-        f"{resolution[0]}x{resolution[1]}",
+        # Input settings for raw video stream from stdin
+        "-f", "rawvideo",
+        "-vcodec", "rawvideo",
+        "-s", f"{resolution[0]}x{resolution[1]}",
+        "-pix_fmt", "rgb24",
+        "-r", str(fps),
+        "-i", "-",  # Read frames from standard input
+        
+        # Audio input
+        "-i", audio_path,
+        
+        # Video encoding settings (Hardware acceleration using nvenc)
+        "-c:v", "h264_nvenc",
+        "-preset", "p4",        # NVENC preset (p4 is medium/good balance)
+        "-cq", "23",            # NVENC constant quality target
+        
+        # Audio encoding settings
+        "-c:a", "aac",
+        "-b:a", "128k",
+        
+        # Output settings
+        "-pix_fmt", "yuv420p",
         "-shortest",
         output_path,
     ]
 
-    subprocess.run(cmd, check=True, capture_output=True)
+    # Open subprocess with stdin piped
+    process = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+
+    try:
+        # Stream frames directly to ffmpeg
+        for frame in frames_iterator:
+            process.stdin.write(frame.convert("RGB").tobytes())
+    except Exception as e:
+        process.stdin.close()
+        process.terminate()
+        raise e
+
+    # Close stdin to signal ffmpeg that the stream is finished
+    process.stdin.close()
+    process.wait()
+
+    if process.returncode != 0:
+        raise RuntimeError("FFmpeg encoding failed.")
 
     return output_path

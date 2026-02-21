@@ -7,13 +7,12 @@ from typing import Optional
 from src.config import load_config, get_default_config
 from src.parser import split_sentences
 from src.frame_generator import generate_sentence_frames, generate_pause_frames
-from src.video_builder import save_frames, assemble_video
+from src.video_builder import assemble_video_stream
 from src.audio_builder import build_audio_track
 from src.utils import verify_ffmpeg
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 @click.command()
 @click.argument("input_file", type=click.Path(exists=True))
@@ -62,41 +61,14 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
 
     pause_chars = config["parsing"].get("sentence_pauses", ["，", "、", ","])
 
-    all_frames = []
-    for i, sentence in enumerate(sentences):
-        logger.debug(f"Generating frames for sentence {i + 1}/{len(sentences)}")
-        frames = generate_sentence_frames(
-            sentence,
-            frame_config,
-            font_path,
-            fps=config["video"]["fps"],
-            character_duration_ms=config["audio"]["character_duration_ms"],
-            pause_chars=pause_chars,
-            character_pause_ms=config["audio"].get("character_pause_ms", 200),
-        )
-        all_frames.extend(frames)
-
-        if i < len(sentences) - 1:
-            pause_frames = generate_pause_frames(
-                frame_config,
-                fps=config["video"]["fps"],
-                pause_duration_ms=config["audio"]["sentence_pause_ms"],
-                visible_text=sentence,
-                font_path=font_path,
-            )
-            all_frames.extend(pause_frames)
-
     Path(output).parent.mkdir(parents=True, exist_ok=True)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        frames_dir = temp_path / "frames"
-        frames_dir.mkdir(exist_ok=True)
-
-        save_frames(all_frames, str(frames_dir))
-        logger.info(f"Saved {len(all_frames)} frames")
-
+        
+        # 1. Build Audio Track First
         audio_output = str(temp_path / "temp_audio.wav")
+        logger.info("Building audio track...")
         build_audio_track(
             sentences,
             sound_path,
@@ -106,7 +78,40 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
         )
         logger.info("Built audio track")
 
-        assemble_video(str(frames_dir), audio_output, output, config["video"])
+        # 2. Define a generator function that yields frames one at a time
+        def frame_generator():
+            for i, sentence in enumerate(sentences):
+                logger.debug(f"Generating frames for sentence {i + 1}/{len(sentences)}")
+                frames = generate_sentence_frames(
+                    sentence,
+                    frame_config,
+                    font_path,
+                    fps=config["video"]["fps"],
+                    character_duration_ms=config["audio"]["character_duration_ms"],
+                    pause_chars=pause_chars,
+                    character_pause_ms=config["audio"].get("character_pause_ms", 200),
+                )
+                
+                # Yield sentence frames sequentially
+                for frame in frames:
+                    yield frame
+
+                if i < len(sentences) - 1:
+                    pause_frames = generate_pause_frames(
+                        frame_config,
+                        fps=config["video"]["fps"],
+                        pause_duration_ms=config["audio"]["sentence_pause_ms"],
+                        visible_text=sentence,
+                        font_path=font_path,
+                    )
+                    
+                    # Yield pause frames sequentially
+                    for frame in pause_frames:
+                        yield frame
+
+        # 3. Stream frames directly to FFmpeg
+        logger.info("Streaming frames and encoding video via NVENC...")
+        assemble_video_stream(frame_generator(), audio_output, output, config["video"])
         logger.info(f"Video saved to {output}")
 
 
