@@ -14,6 +14,7 @@ from src.utils import verify_ffmpeg
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+
 @click.command()
 @click.argument("input_file", type=click.Path(exists=True))
 @click.option("-o", "--output", default="output/video.mp4", help="Output video path")
@@ -65,7 +66,7 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
 
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
-        
+
         # 1. Build Audio Track First
         audio_output = str(temp_path / "temp_audio.wav")
         logger.info("Building audio track...")
@@ -78,11 +79,15 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
         )
         logger.info("Built audio track")
 
-        # 2. Define a generator function that yields frames one at a time
+        # 2. Define a generator function that yields frames one at a time.
+        #    A cumulative elapsed_ms counter is threaded through all frame
+        #    generation calls so that video frame counts stay in sync with
+        #    the audio track's exact millisecond durations.
         def frame_generator():
+            elapsed_ms = 0.0
             for i, sentence in enumerate(sentences):
                 logger.debug(f"Generating frames for sentence {i + 1}/{len(sentences)}")
-                frames = generate_sentence_frames(
+                frames, elapsed_ms = generate_sentence_frames(
                     sentence,
                     frame_config,
                     font_path,
@@ -90,21 +95,23 @@ def cli(input_file: str, output: str, config_path: Optional[str], verbose: bool)
                     character_duration_ms=config["audio"]["character_duration_ms"],
                     pause_chars=pause_chars,
                     character_pause_ms=config["audio"].get("character_pause_ms", 200),
+                    elapsed_ms=elapsed_ms,
                 )
-                
+
                 # Yield sentence frames sequentially
                 for frame in frames:
                     yield frame
 
                 if i < len(sentences) - 1:
-                    pause_frames = generate_pause_frames(
+                    pause_frames, elapsed_ms = generate_pause_frames(
                         frame_config,
                         fps=config["video"]["fps"],
                         pause_duration_ms=config["audio"]["sentence_pause_ms"],
                         visible_text=sentence,
                         font_path=font_path,
+                        elapsed_ms=elapsed_ms,
                     )
-                    
+
                     # Yield pause frames sequentially
                     for frame in pause_frames:
                         yield frame

@@ -11,10 +11,22 @@ def generate_pause_frames(
     pause_duration_ms: int = 500,
     visible_text: str = "",
     font_path: Optional[str] = None,
-) -> list[Image.Image]:
+    elapsed_ms: float = 0.0,
+) -> tuple[list[Image.Image], float]:
+    """Generate static pause frames and return (frames, updated_elapsed_ms).
+
+    Uses cumulative time tracking to avoid frame-count drift relative to audio.
+    The caller passes in the running elapsed_ms; this function advances it by
+    pause_duration_ms and computes frame count from the difference in the
+    cumulative frame position, keeping total error within ±1 frame.
+    """
     width, height = config["resolution"]
     bg_color = config["background_color"]
-    pause_frames_count = max(1, round(fps * pause_duration_ms / 1000))
+
+    frames_before = round(elapsed_ms * fps / 1000)
+    elapsed_ms += pause_duration_ms
+    frames_after = round(elapsed_ms * fps / 1000)
+    pause_frames_count = max(1, frames_after - frames_before)
 
     frame = Image.new("RGB", (width, height), bg_color)
 
@@ -34,7 +46,7 @@ def generate_pause_frames(
         draw = ImageDraw.Draw(frame)
         draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
 
-    return [frame.copy() for _ in range(pause_frames_count)]
+    return [frame.copy() for _ in range(pause_frames_count)], elapsed_ms
 
 
 def generate_sentence_frames(
@@ -45,9 +57,23 @@ def generate_sentence_frames(
     character_duration_ms: int = 50,
     pause_chars: Optional[list[str]] = None,
     character_pause_ms: int = 200,
-) -> list[Image.Image]:
+    elapsed_ms: float = 0.0,
+) -> tuple[list[Image.Image], float]:
+    """Generate frames for a sentence and return (frames, updated_elapsed_ms).
+
+    Uses cumulative time tracking to stay in sync with the audio track.
+    The audio builder absorbs pause-marker durations into the preceding
+    character's clip (so the typing sound naturally fades into silence).
+    This function mirrors that: when a pause marker follows a character,
+    the elapsed time advances by character_pause_ms and the extra frames
+    are copies of the last frame (showing the pause-marker text).
+
+    The caller passes in the running elapsed_ms counter; this function
+    returns the updated value so it can be threaded across sentences and
+    inter-sentence pauses.
+    """
     if not sentence:
-        return []
+        return [], elapsed_ms
 
     if pause_chars is None:
         pause_chars = ["，", "、", ","]
@@ -58,9 +84,7 @@ def generate_sentence_frames(
     bg_color = config["background_color"]
     text_x, text_y = config["text_position"]
 
-    frames = []
-    frames_per_char = max(1, round(fps * character_duration_ms / 1000))
-    pause_frames_count = max(1, round(fps * character_pause_ms / 1000))
+    frames: list[Image.Image] = []
 
     try:
         if font_path:
@@ -75,6 +99,7 @@ def generate_sentence_frames(
         visible_text += char
 
         if is_punctuation(char):
+            # Draw punctuation onto the last frame (in-place update)
             if len(frames) > 0:
                 frame = frames[-1].copy()
                 draw = ImageDraw.Draw(frame)
@@ -87,13 +112,24 @@ def generate_sentence_frames(
                 frames.append(frame)
 
             if is_pause_marker(char, pause_chars):
-                for _ in range(pause_frames_count):
+                # Mirror audio_builder: absorb pause into preceding char's
+                # duration so the typing sound fades naturally into silence.
+                frames_before = round(elapsed_ms * fps / 1000)
+                elapsed_ms += character_pause_ms
+                frames_after = round(elapsed_ms * fps / 1000)
+                pause_frame_count = max(1, frames_after - frames_before)
+                for _ in range(pause_frame_count):
                     frames.append(frames[-1].copy())
         else:
             frame = Image.new("RGB", (width, height), bg_color)
             draw = ImageDraw.Draw(frame)
             draw.text((text_x, text_y), visible_text, fill=text_color, font=font)
-            for _ in range(frames_per_char):
+
+            frames_before = round(elapsed_ms * fps / 1000)
+            elapsed_ms += character_duration_ms
+            frames_after = round(elapsed_ms * fps / 1000)
+            char_frame_count = max(1, frames_after - frames_before)
+            for _ in range(char_frame_count):
                 frames.append(frame.copy())
 
-    return frames
+    return frames, elapsed_ms
