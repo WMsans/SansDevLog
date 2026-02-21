@@ -93,41 +93,48 @@ def build_audio_track(
             if is_punctuation(char):
                 if is_pause_marker(char, pause_chars):
                     # If there's an active character before this pause, let it ring out by absorbing the pause
-                    if clips_to_generate and clips_to_generate[-1]['type'] == 'char':
-                        clips_to_generate[-1]['duration'] += character_pause_ms
+                    if clips_to_generate and clips_to_generate[-1]["type"] == "char":
+                        clips_to_generate[-1]["duration"] += character_pause_ms
                     else:
-                        clips_to_generate.append({
-                            'type': 'silence',
-                            'duration': character_pause_ms,
-                            'char_idx': char_idx
-                        })
+                        clips_to_generate.append(
+                            {
+                                "type": "silence",
+                                "duration": character_pause_ms,
+                                "char_idx": char_idx,
+                            }
+                        )
                 continue
-            
-            clips_to_generate.append({
-                'type': 'char',
-                'duration': char_duration_ms,
-                'char_idx': char_idx
-            })
+
+            clips_to_generate.append(
+                {"type": "char", "duration": char_duration_ms, "char_idx": char_idx}
+            )
 
         # Add the sentence pause (line break / sentence end padding)
         if i < len(sentences) - 1:
-            if clips_to_generate and clips_to_generate[-1]['type'] == 'char':
-                clips_to_generate[-1]['duration'] += sentence_pause_ms
+            if clips_to_generate and clips_to_generate[-1]["type"] == "char":
+                clips_to_generate[-1]["duration"] += sentence_pause_ms
             else:
-                clips_to_generate.append({
-                    'type': 'silence',
-                    'duration': sentence_pause_ms,
-                    'char_idx': 'end'
-                })
+                clips_to_generate.append(
+                    {
+                        "type": "silence",
+                        "duration": sentence_pause_ms,
+                        "char_idx": "end",
+                    }
+                )
 
         # Generate the scheduled clips
         for clip_info in clips_to_generate:
-            duration_ms = clip_info['duration']
-            idx = clip_info['char_idx']
+            duration_ms = clip_info["duration"]
+            idx = clip_info["char_idx"]
 
-            if clip_info['type'] == 'char':
+            if clip_info["type"] == "char":
                 temp_clip = f"temp_char_{i}_{idx}.wav"
                 temp_files.append(temp_clip)
+
+                duration_s = duration_ms / 1000
+                fade_ms = 10
+                fade_s = fade_ms / 1000
+                fade_start_s = max(0, duration_s - fade_s)
 
                 cmd = [
                     "ffmpeg",
@@ -135,9 +142,15 @@ def build_audio_track(
                     "-i",
                     sound_path,
                     "-af",
-                    f"asetrate={sample_rate}*{pitch},atempo=1/{pitch},aresample={sample_rate},apad=whole_dur={duration_ms}ms",
+                    (
+                        f"asetrate={sample_rate}*{pitch},"
+                        f"atempo=1/{pitch},"
+                        f"aresample={sample_rate},"
+                        f"apad=whole_dur={duration_ms}ms,"
+                        f"afade=t=out:st={fade_start_s}:d={fade_s}"
+                    ),
                     "-t",
-                    f"{duration_ms / 1000}",
+                    f"{duration_s}",
                     temp_clip,
                 ]
                 subprocess.run(cmd, check=True, capture_output=True)
@@ -145,7 +158,7 @@ def build_audio_track(
             else:
                 silence_path = f"temp_silence_{i}_{idx}.wav"
                 temp_files.append(silence_path)
-                
+
                 silence_cmd = [
                     "ffmpeg",
                     "-y",
